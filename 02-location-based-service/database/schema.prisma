@@ -1,0 +1,210 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id           String                  @id @default(uuid())
+  email        String                  @unique
+  passwordHash String
+  name         String?
+  role         String                  @default("USER") // USER, BUSINESS, ADMIN
+  createdAt    DateTime                @default(now())
+  updatedAt    DateTime                @updatedAt
+
+  preferences  UserLocationPreference?
+  savedPlaces  SavedLocation[]
+  geofences    Geofence[]
+  sharesSent   LocationShare[]         @relation("SenderShares")
+  sharesReceived LocationShare[]       @relation("RecipientShares")
+  consents     LocationPermissionRecord[]
+  notifications LocationNotification[]
+}
+
+model UserLocationPreference {
+  id                   String    @id @default(uuid())
+  userId               String    @unique
+  defaultRadiusMeters  Int       @default(5000)
+  distanceUnit         String    @default("METERS") // METERS, KILOMETERS, MILES
+  historyEnabled       Boolean   @default(false)
+  retentionDays        Int       @default(30)
+  quietHoursStart      Int?
+  quietHoursEnd        Int?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model SavedLocation {
+  id             String    @id @default(uuid())
+  userId         String
+  name           String
+  category       String?
+  encryptedLat   String    // Field-level encrypted for privacy
+  encryptedLon   String    // Field-level encrypted for privacy
+  latitude       Float
+  longitude      Float
+  createdAt      DateTime  @default(now())
+
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model PlaceCategory {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  slug        String   @unique
+  icon        String
+  description String?
+  places      Place[]
+}
+
+model Place {
+  id             String        @id @default(uuid())
+  categoryId     String
+  name           String
+  description    String?
+  address        String?
+  latitude       Float
+  longitude      Float
+  isOpenNow      Boolean       @default(true)
+  openingHours   String?
+  phone          String?
+  website        String?
+  isVerified     Boolean       @default(false)
+  isSampleData   Boolean       @default(true)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  category       PlaceCategory @relation(fields: [categoryId], references: [id])
+  events         PlaceEvent[]
+
+  @@index([categoryId])
+  @@index([latitude, longitude])
+}
+
+model PlaceEvent {
+  id          String    @id @default(uuid())
+  placeId     String
+  title       String
+  description String?
+  startTime   DateTime
+  endTime     DateTime
+  isPublic    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+
+  place       Place     @relation(fields: [placeId], references: [id], onDelete: Cascade)
+
+  @@index([placeId])
+  @@index([startTime])
+}
+
+model Geofence {
+  id           String          @id @default(uuid())
+  userId       String
+  name         String
+  type         String          @default("CIRCLE") // CIRCLE, POLYGON
+  latitude     Float
+  longitude    Float
+  radiusMeters Float           @default(500)
+  polygonGeoJson String?       // Valid GeoJSON Polygon representation
+  dwellMinutes Int             @default(1)
+  isActive     Boolean         @default(true)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  events       GeofenceEvent[]
+  states       GeofenceState[]
+
+  @@index([userId])
+  @@index([latitude, longitude])
+}
+
+model GeofenceState {
+  id             String    @id @default(uuid())
+  geofenceId     String
+  userId         String
+  status         String    @default("OUTSIDE") // INSIDE, OUTSIDE
+  consecutiveHits Int      @default(0)
+  lastTransition DateTime  @default(now())
+  lastPingTime   DateTime  @default(now())
+
+  geofence       Geofence  @relation(fields: [geofenceId], references: [id], onDelete: Cascade)
+
+  @@unique([geofenceId, userId])
+}
+
+model GeofenceEvent {
+  id           String    @id @default(uuid())
+  geofenceId   String
+  userId       String
+  eventType    String    // ENTER, EXIT, DWELL
+  latitude     Float
+  longitude    Float
+  accuracy     Float     // in meters
+  source       String    @default("DEVICE") // DEVICE, MANUAL, SIMULATED
+  triggeredAt  DateTime  @default(now())
+
+  geofence     Geofence  @relation(fields: [geofenceId], references: [id], onDelete: Cascade)
+
+  @@index([geofenceId])
+  @@index([userId])
+  @@index([triggeredAt])
+}
+
+model LocationPermissionRecord {
+  id             String    @id @default(uuid())
+  userId         String
+  purpose        String    // NEARBY_SEARCH, GEOFENCING, LIVE_SHARING, LOCATION_HISTORY
+  permissionState String   // GRANTED, DENIED, REVOKED
+  grantedAt      DateTime  @default(now())
+  revokedAt      DateTime?
+
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model LocationShare {
+  id             String    @id @default(uuid())
+  token          String    @unique
+  senderId       String
+  recipientEmail String
+  lastLatitude   Float
+  lastLongitude  Float
+  lastAccuracy   Float?
+  lastUpdated    DateTime  @default(now())
+  expiresAt      DateTime
+  isRevoked      Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+
+  sender         User      @relation("SenderShares", fields: [senderId], references: [id], onDelete: Cascade)
+  recipient      User?     @relation("RecipientShares", fields: [recipientEmail], references: [email])
+
+  @@index([token])
+  @@index([senderId])
+  @@index([expiresAt])
+}
+
+model LocationNotification {
+  id          String    @id @default(uuid())
+  userId      String
+  title       String
+  message     String
+  type        String    // GEOFENCE_ENTER, GEOFENCE_EXIT, PROXIMITY_DISCOVERY
+  channel     String    @default("IN_APP")
+  isRead      Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+}
