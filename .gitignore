@@ -1,0 +1,56 @@
+# Dependencies
+node_modules/
+/.pnp
+.pnp.js
+
+# Environment variables
+.env
+.env*.local
+.env.development
+.env.test
+.env.production
+!.env.example
+
+# Build outputs
+dist/
+build/
+.next/
+out/
+coverage/
+*.lcov
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS and Editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Database and Cache
+*.sqlite
+*.sqlite3
+*.db
+dump.rdb
+.prisma/client
+
+# Temporary & Data files
+tmp/
+temp/
+scratch/
+*.osm.pbf
+*.osrm*
+*.vroom
+*.mvt
+*.tif
+*.tiff

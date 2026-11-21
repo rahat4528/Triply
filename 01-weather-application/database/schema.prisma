@@ -1,0 +1,193 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id           String            @id @default(uuid())
+  email        String            @unique
+  passwordHash String
+  name         String?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  
+  savedLocations RecentSearch[]
+  favorites      SavedLocation[]
+  preferences    WeatherPreference?
+  alertRules     WeatherAlertRule[]
+  widgetConfigs  WidgetConfig[]
+}
+
+model SavedLocation {
+  id             String    @id @default(uuid())
+  userId         String
+  name           String
+  administrative String?
+  country        String?
+  latitude       Float
+  longitude      Float
+  elevation      Float?
+  timezone       String
+  sortOrder      Int       @default(0)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([latitude, longitude])
+}
+
+model RecentSearch {
+  id             String    @id @default(uuid())
+  userId         String?
+  query          String
+  resolvedName   String
+  latitude       Float
+  longitude      Float
+  country        String?
+  createdAt      DateTime  @default(now())
+
+  user           User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model WeatherPreference {
+  id               String    @id @default(uuid())
+  userId           String    @unique
+  temperatureUnit  String    @default("CELSIUS") // CELSIUS, FAHRENHEIT
+  speedUnit        String    @default("KM_H")    // KM_H, M_S, MPH, KNOTS
+  pressureUnit     String    @default("HPA")     // HPA, INHG, MMHG
+  precipitationUnit String   @default("MM")      // MM, INCH
+  quietHoursStart  Int?      // 0-23
+  quietHoursEnd    Int?      // 0-23
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model WeatherSnapshot {
+  id             String    @id @default(uuid())
+  latitude       Float
+  longitude      Float
+  locationName   String
+  temperature    Float     // Canonical °C
+  feelsLike      Float     // Canonical °C
+  weatherCode    Int       // WMO weather code
+  humidity       Float
+  windSpeed      Float     // Canonical km/h
+  windDirection  Float
+  pressure       Float     // Canonical hPa
+  uvIndex        Float?
+  cloudCover     Float?
+  visibility     Float?    // meters
+  isDay          Boolean   @default(true)
+  observedAt     DateTime
+  fetchedAt      DateTime  @default(now())
+  providerName   String    @default("open-meteo")
+
+  @@index([latitude, longitude, observedAt])
+}
+
+model ForecastCache {
+  id             String    @id @default(uuid())
+  cacheKey       String    @unique
+  latitude       Float
+  longitude      Float
+  forecastType   String    // HOURLY, DAILY, COMBINED
+  payload        String    // JSON encoded
+  sourceTimestamp DateTime
+  fetchedAt      DateTime  @default(now())
+  expiresAt      DateTime
+  isStale        Boolean   @default(false)
+  staleReason    String?
+
+  @@index([cacheKey])
+  @@index([expiresAt])
+}
+
+model WeatherAlertRule {
+  id             String              @id @default(uuid())
+  userId         String
+  locationName   String
+  latitude       Float
+  longitude      Float
+  metric         String              // TEMPERATURE_HIGH, TEMPERATURE_LOW, WIND_SPEED, RAIN_PROBABILITY
+  comparator     String              // GT, GTE, LT, LTE, EQ
+  thresholdValue Float
+  cooldownMinutes Int                @default(180)
+  lastTriggeredAt DateTime?
+  isActive       Boolean             @default(true)
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  user           User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  notifications  AlertNotification[]
+
+  @@index([userId])
+  @@index([isActive])
+}
+
+model AlertNotification {
+  id             String           @id @default(uuid())
+  ruleId         String
+  metric         String
+  triggerValue   Float
+  thresholdValue Float
+  message        String
+  channel        String           // IN_APP, EMAIL, WEB_PUSH
+  isDelivered    Boolean          @default(false)
+  readAt         DateTime?
+  createdAt      DateTime         @default(now())
+
+  rule           WeatherAlertRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+
+  @@index([ruleId])
+  @@index([createdAt])
+}
+
+model DataProvider {
+  id             String    @id @default(uuid())
+  name           String    @unique
+  baseUrl        String
+  attribution    String
+  requiresApiKey Boolean   @default(false)
+  isActive       Boolean   @default(true)
+  dailyLimit     Int       @default(10000)
+  createdAt      DateTime  @default(now())
+}
+
+model APIUsageRecord {
+  id             String    @id @default(uuid())
+  providerName   String
+  endpoint       String
+  requestCount   Int       @default(1)
+  recordedDate   DateTime  @default(now())
+
+  @@index([providerName, recordedDate])
+}
+
+model WidgetConfig {
+  id             String    @id @default(uuid())
+  userId         String
+  token          String    @unique
+  locationName   String
+  latitude       Float
+  longitude      Float
+  theme          String    @default("auto") // light, dark, auto
+  allowedMetrics String[]  @default(["temperature", "condition", "wind", "humidity"])
+  rateLimitPerHour Int     @default(500)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+}
