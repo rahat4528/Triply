@@ -20,7 +20,18 @@ Triply is a production-grade software suite comprising five independent applicat
 - **Geographic Precision**: Canonical WGS84 coordinates, geodesic distance metrics, and strict input validation.
 - **Privacy by Design**: Explicit consent models, data retention limits, and zero coordinate logging in server traces.
 
+## Application Status Summary
+
+| Application | Directory | Purpose | Status | Documentation |
+|---|---|---|---|---|
+| **Weather Application** | [`01-weather-application`](./01-weather-application) | Meteorological dashboard, hourly forecasts, threshold alerts | Completed | [Completion Report](./01-weather-application/docs/completion-report.md) |
+| **Location-Based Service** | [`02-location-based-service`](./02-location-based-service) | Spatial proximity search, geofencing, privacy center | Completed | [Completion Report](./02-location-based-service/docs/completion-report.md) |
+| **Map Visualization Tool** | [`03-map-visualization-tool`](./03-map-visualization-tool) | Dataset ingestion, statistical classification, spatial layers | Completed | [Completion Report](./03-map-visualization-tool/docs/completion-report.md) |
+| **Travel Planner App** | [`04-travel-planner-app`](./04-travel-planner-app) | Itinerary sequencing, minor-unit budgeting, iCalendar feed | Completed | [Completion Report](./04-travel-planner-app/docs/completion-report.md) |
+| **Delivery Route Optimizer** | [`05-delivery-route-optimizer`](./05-delivery-route-optimizer) | Multi-vehicle VRP, time windows, control tower, validator | Completed | [Completion Report](./05-delivery-route-optimizer/docs/completion-report.md) |
+
 ## Documentation
+- [Final Delivery Report](file:///docs/final-delivery-report.md)
 - [Repository Overview](file:///docs/repository-overview.md)
 - [Architecture](file:///docs/architecture.md)
 - [Technology Stack](file:///docs/technology-stack.md)
