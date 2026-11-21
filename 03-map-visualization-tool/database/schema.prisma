@@ -1,0 +1,161 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id           String              @id @default(uuid())
+  email        String              @unique
+  passwordHash String
+  name         String?
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  datasets     Dataset[]
+  projects     MapProject[]
+  exportJobs   ExportJob[]
+  sharedMaps   SharedMapPermission[]
+}
+
+model Dataset {
+  id           String              @id @default(uuid())
+  userId       String
+  name         String
+  description  String?
+  sourceFormat String              // CSV, GEOJSON, KML, GPX, SHP
+  rowCount     Int                 @default(0)
+  bounds       Float[]             // [minLon, minLat, maxLon, maxLat]
+  isSampleData Boolean             @default(true)
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  columns      DatasetColumn[]
+  features     GeographicFeature[]
+  layers       MapLayer[]
+  exportJobs   ExportJob[]
+
+  @@index([userId])
+}
+
+model DatasetColumn {
+  id           String   @id @default(uuid())
+  datasetId    String
+  name         String
+  inferredType String   // STRING, INTEGER, FLOAT, BOOLEAN, TIMESTAMP, GEOMETRY
+  isGeometry   Boolean  @default(false)
+  nullCount    Int      @default(0)
+  distinctCount Int     @default(0)
+  sampleValues String[]
+
+  dataset      Dataset  @relation(fields: [datasetId], references: [id], onDelete: Cascade)
+
+  @@index([datasetId])
+}
+
+model GeographicFeature {
+  id           String   @id @default(uuid())
+  datasetId    String
+  properties   Json
+  latitude     Float?
+  longitude    Float?
+  geometryType String   // Point, LineString, Polygon, MultiPolygon
+  createdAt    DateTime @default(now())
+
+  dataset      Dataset  @relation(fields: [datasetId], references: [id], onDelete: Cascade)
+
+  @@index([datasetId])
+  @@index([latitude, longitude])
+}
+
+model MapProject {
+  id           String                @id @default(uuid())
+  userId       String
+  title        String
+  description  String?
+  centerLat    Float                 @default(51.5074)
+  centerLon    Float                 @default(-0.1278)
+  zoom         Float                 @default(11.0)
+  pitch        Float                 @default(0.0)
+  bearing      Float                 @default(0.0)
+  basemapStyle String                @default("standard")
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+
+  user         User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  layers       MapLayer[]
+  filters      FilterConfiguration[]
+  shares       SharedMapPermission[]
+
+  @@index([userId])
+}
+
+model MapLayer {
+  id           String              @id @default(uuid())
+  projectId    String
+  datasetId    String
+  name         String
+  type         String              // POINT, LINE, POLYGON, HEATMAP, CLUSTER, CHOROPLETH
+  isVisible    Boolean             @default(true)
+  sortOrder    Int                 @default(0)
+  config       Json                // Color scale, radius, 3D extrusion height, opacity
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  project      MapProject          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  dataset      Dataset             @relation(fields: [datasetId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([datasetId])
+}
+
+model FilterConfiguration {
+  id           String     @id @default(uuid())
+  projectId    String
+  columnName   String
+  filterType   String     // NUMERIC_RANGE, CATEGORICAL, TEMPORAL, SPATIAL_BBOX
+  config       Json       // min, max, selectedValues, startDate, endDate
+  isActive     Boolean    @default(true)
+
+  project      MapProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+}
+
+model ExportJob {
+  id           String     @id @default(uuid())
+  userId       String
+  datasetId    String
+  format       String     // CSV, GEOJSON
+  status       String     @default("PENDING") // PENDING, PROCESSING, COMPLETED, FAILED
+  downloadUrl  String?
+  expiresAt    DateTime?
+  createdAt    DateTime   @default(now())
+
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dataset      Dataset    @relation(fields: [datasetId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+}
+
+model SharedMapPermission {
+  id           String     @id @default(uuid())
+  projectId    String
+  userId       String?
+  shareToken   String     @unique
+  role         String     @default("VIEWER") // VIEWER, EDITOR
+  expiresAt    DateTime?
+  isRevoked    Boolean    @default(false)
+  createdAt    DateTime   @default(now())
+
+  project      MapProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user         User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([shareToken])
+  @@index([projectId])
+}
