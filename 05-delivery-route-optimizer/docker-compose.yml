@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  route-optimizer-db:
+    image: postgres:16-alpine
+    container_name: triply_route_optimizer_db
+    environment:
+      POSTGRES_DB: triply_route_optimizer_db
+      POSTGRES_USER: triply_user
+      POSTGRES_PASSWORD: triply_secure_password_2026
+    ports:
+      - "5436:5432"
+    volumes:
+      - route_optimizer_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U triply_user -d triply_route_optimizer_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  route-optimizer-redis:
+    image: redis:7-alpine
+    container_name: triply_route_optimizer_redis
+    ports:
+      - "6383:6379"
+    volumes:
+      - route_optimizer_redisdata:/data
+
+  # VROOM C++ Optimization Solver Container
+  vroom-solver:
+    image: vroombackend/vroom-docker:v1.14.0
+    container_name: triply_vroom_solver
+    ports:
+      - "3000:3000"
+    environment:
+      VROOM_ROUTER: osrm
+    restart: unless-stopped
+
+  # OSRM Routing Engine Container
+  osrm-router:
+    image: osrm/osrm-backend:v5.27.1
+    container_name: triply_osrm_router
+    ports:
+      - "5000:5000"
+    restart: unless-stopped
+
+volumes:
+  route_optimizer_pgdata:
+  route_optimizer_redisdata:

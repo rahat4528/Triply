@@ -6,4 +6,4 @@
 | 02 | `02-location-based-service` | Location-Based Service | Consented geolocation, nearby search, geofencing | Completed |
 | 03 | `03-map-visualization-tool` | Map Visualization Tool | Spatial dataset ingestion, deck.gl layers, analytics | Completed |
 | 04 | `04-travel-planner-app` | Travel Planner App | Multi-day itinerary builder, budgeting, trip collaboration | Completed |
-| 05 | `05-delivery-route-optimizer` | Delivery Route Optimizer | Fleet management, multi-vehicle VRP, route dispatch | Not Started |
+| 05 | `05-delivery-route-optimizer` | Delivery Route Optimizer | Fleet management, multi-vehicle VRP, route dispatch | Completed |

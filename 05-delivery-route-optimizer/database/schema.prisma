@@ -1,0 +1,159 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum VehicleType {
+  VAN
+  TRUCK_REFRIGERATED
+  CARGO_BIKE
+  ELECTRIC_VAN
+}
+
+enum VehicleStatus {
+  AVAILABLE
+  DISPATCHED
+  MAINTENANCE
+}
+
+enum JobType {
+  DELIVERY
+  PICKUP
+}
+
+enum JobStatus {
+  PENDING
+  ASSIGNED
+  COMPLETED
+  FAILED
+}
+
+enum RunStatus {
+  DRAFT
+  SOLVING
+  COMPLETED
+  DISPATCHED
+  FAILED
+}
+
+enum StopDeliveryStatus {
+  SCHEDULED
+  EN_ROUTE
+  ARRIVED
+  DELIVERED
+  FAILED
+}
+
+model Depot {
+  id           String    @id @default(uuid())
+  name         String
+  address      String
+  latitude     Float
+  longitude    Float
+  openSeconds  Int       @default(21600) // 06:00
+  closeSeconds Int       @default(72000) // 20:00
+  createdAt    DateTime  @default(now())
+  vehicles     Vehicle[]
+}
+
+model Driver {
+  id                 String    @id @default(uuid())
+  name               String
+  phone              String
+  licenseNumber      String
+  skills             String[]  @default([])
+  maxShiftDurationSec Int       @default(32400) // 9 hours
+  createdAt          DateTime  @default(now())
+  assignedVehicle    Vehicle?
+}
+
+model Vehicle {
+  id               String          @id @default(uuid())
+  code             String          @unique
+  name             String
+  vehicleType      VehicleType     @default(VAN)
+  capacityKg       Int             @default(1000)
+  capacityM3       Float           @default(8.0)
+  capacityPieces   Int             @default(50)
+  status           VehicleStatus   @default(AVAILABLE)
+  currentDepotId   String
+  depot            Depot           @relation(fields: [currentDepotId], references: [id])
+  assignedDriverId String?         @unique
+  driver           Driver?         @relation(fields: [assignedDriverId], references: [id])
+  createdAt        DateTime        @default(now())
+  routes           OptimizedRoute[]
+
+  @@index([status])
+}
+
+model DeliveryJob {
+  id                 String      @id @default(uuid())
+  trackingCode       String      @unique
+  customerName       String
+  address            String
+  latitude           Float
+  longitude          Float
+  demandKg           Int         @default(10)
+  demandM3           Float       @default(0.1)
+  demandPieces       Int         @default(1)
+  timeWindowStartSec Int         @default(28800) // 08:00
+  timeWindowEndSec   Int         @default(64800) // 18:00
+  serviceDurationSec Int         @default(300)   // 5 mins
+  requiredSkills     String[]    @default([])
+  jobType            JobType     @default(DELIVERY)
+  status             JobStatus   @default(PENDING)
+  createdAt          DateTime    @default(now())
+  stops              RouteStop[]
+
+  @@index([status])
+}
+
+model OptimizationRun {
+  id                   String           @id @default(uuid())
+  status               RunStatus        @default(DRAFT)
+  objectiveValue       Float            @default(0.0)
+  totalDistanceMeters  Int              @default(0)
+  totalDurationSeconds Int              @default(0)
+  totalJobsAssigned    Int              @default(0)
+  totalJobsUnassigned  Int              @default(0)
+  version              Int              @default(1)
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+  routes               OptimizedRoute[]
+}
+
+model OptimizedRoute {
+  id                   String          @id @default(uuid())
+  runId                String
+  run                  OptimizationRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  vehicleId            String
+  vehicle              Vehicle         @relation(fields: [vehicleId], references: [id])
+  totalDistanceMeters  Int             @default(0)
+  totalDurationSeconds Int             @default(0)
+  stops                RouteStop[]
+
+  @@index([runId])
+  @@index([vehicleId])
+}
+
+model RouteStop {
+  id                   String             @id @default(uuid())
+  routeId              String
+  route                OptimizedRoute     @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  jobId                String?
+  job                  DeliveryJob?       @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  sequence             Int
+  stopType             String             @default("JOB") // START, JOB, END
+  estimatedArrivalSec  Int
+  estimatedDepartureSec Int
+  cumulativeLoadKg     Int                @default(0)
+  cumulativeLoadM3     Float              @default(0.0)
+  cumulativeLoadPieces Int                @default(0)
+  deliveryStatus       StopDeliveryStatus @default(SCHEDULED)
+
+  @@index([routeId, sequence])
+}
